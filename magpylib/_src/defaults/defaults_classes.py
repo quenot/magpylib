@@ -1,239 +1,894 @@
+from collections import defaultdict
+
+import numpy as np
+import param
+
 from magpylib._src.defaults.defaults_utility import color_validator
 from magpylib._src.defaults.defaults_utility import get_defaults_dict
-from magpylib._src.defaults.defaults_utility import MagicProperties
+from magpylib._src.defaults.defaults_utility import LINESTYLES_MATPLOTLIB_TO_PLOTLY
+from magpylib._src.defaults.defaults_utility import MagicParameterized
 from magpylib._src.defaults.defaults_utility import SUPPORTED_PLOTTING_BACKENDS
-from magpylib._src.defaults.defaults_utility import validate_property_class
-from magpylib._src.style import DisplayStyle
+from magpylib._src.defaults.defaults_utility import SYMBOLS_MATPLOTLIB_TO_PLOTLY
 
 
-class DefaultConfig(MagicProperties):
-    """Library default settings.
+class Description(MagicParameterized):
+    """Description styling properties"""
 
-    Parameters
-    ----------
-    display: dict or Display
-        `Display` class containing display settings. `('backend', 'animation', 'colorsequence' ...)`
+    show = param.Boolean(
+        default=True,
+        doc="if `True`, adds legend entry suffix based on value",
+    )
+    text = param.String(doc="Object description text")
+
+
+class Marker(MagicParameterized):
+    """Defines the styling properties of plot markers"""
+
+    color = param.Color(
+        default=None,
+        allow_None=True,
+        doc="""
+        The marker color. Must be a valid css color or one of
+        `['r', 'g', 'b', 'y', 'm', 'c', 'k', 'w']`.""",
+    )
+
+    size = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, True),
+        softbounds=(1, 5),
+        doc="""Marker size""",
+    )
+
+    symbol = param.Selector(
+        objects=list(SYMBOLS_MATPLOTLIB_TO_PLOTLY.keys()),
+        doc=f"""Marker symbol. Can be one of: {list(SYMBOLS_MATPLOTLIB_TO_PLOTLY.keys())}""",
+    )
+
+
+class PathMarker(Marker):
+    """Defines the styling properties of path plot markers"""
+
+
+class Line(MagicParameterized):
+    """Defines Line styling properties"""
+
+    color = param.Color(default=None, allow_None=True, doc="""A valid css color""")
+
+    width = param.Number(
+        default=1,
+        bounds=(0, 20),
+        inclusive_bounds=(True, True),
+        softbounds=(1, 5),
+        doc="""Path line width""",
+    )
+
+    style = param.Selector(
+        default="solid",
+        objects=list(LINESTYLES_MATPLOTLIB_TO_PLOTLY.keys()),
+        doc=f"""
+        Path line style. Can be one of:
+        {list(LINESTYLES_MATPLOTLIB_TO_PLOTLY.keys())}""",
+    )
+
+
+class Frames(MagicParameterized):
+    """Defines the styling properties of an object's path frames"""
+
+    indices = param.List(
+        default=[],
+        item_type=int,
+        doc="""Array_like shape (n,) of integers: describes certain path indices.""",
+    )
+
+    step = param.Integer(
+        default=0, doc="""Displays the object(s) at every i'th path position"""
+    )
+
+    mode = param.Selector(
+        default="indices",
+        objects=["indices", "step"],
+        doc="""
+        The object path frames mode.
+        - step: integer i: displays the object(s) at every i'th path position.
+        - indices: array_like shape (n,) of integers: describes certain path indices.""",
+    )
+
+    @param.depends("indices", watch=True)
+    def _update_indices(self):
+        self.mode = "indices"
+
+    @param.depends("step", watch=True)
+    def _update_step(self):
+        self.mode = "step"
+
+
+class Path(MagicParameterized):
+    """Defines the styling properties of an object's path"""
+
+    def __setattr__(self, name, value):
+        if name == "frames":
+            if isinstance(value, (tuple, list, np.ndarray)):
+                self.frames.indices = [int(v) for v in value]
+            elif isinstance(value, (int, np.integer)):
+                self.frames.step = value
+            else:
+                super().__setattr__(name, value)
+            return
+        super().__setattr__(name, value)
+
+    marker = param.ClassSelector(
+        Marker,
+        default=PathMarker(),
+        doc="""
+        Marker class with `'color'``, 'symbol'`, `'size'` properties, or dictionary with equivalent
+        key/value pairs""",
+    )
+
+    line = param.ClassSelector(
+        Line,
+        default=Line(),
+        doc="""
+        Line class with `'color'``, 'width'`, `'style'` properties, or dictionary with equivalent
+        key/value pairs""",
+    )
+
+    show = param.Boolean(
+        default=True,
+        doc="""
+        Show/hide path
+        - False: shows object(s) at final path position and hides paths lines and markers.
+        - True: shows object(s) shows object paths depending on `line`, `marker` and `frames`
+                parameters.""",
+    )
+
+    numbering = param.Boolean(
+        doc="""Show/hide numbering on path positions. Only applies if show=True.""",
+    )
+
+    frames = param.ClassSelector(
+        Frames,
+        default=Frames(),
+        doc="""
+        Show copies of the 3D-model along the given path indices.
+        - mode: either `step` or `indices`.
+        - step: integer i: displays the object(s) at every i'th path position.
+        - indices: array_like shape (n,) of integers: describes certain path indices.""",
+    )
+
+
+class Trace3d(MagicParameterized):
+    """
+    Defines properties for an additional user-defined 3d model object which is positioned relatively
+    to the main object to be displayed and moved automatically with it. This feature also allows
+    the user to replace the original 3d representation of the object.
     """
 
-    def __init__(
-        self,
-        display=None,
-        **kwargs,
-    ):
-        super().__init__(
-            display=display,
-            **kwargs,
+    def __setattr__(self, name, value):
+        validation_func = getattr(self, f"_validate_{name}", None)
+        if name is not None:
+            value = validation_func(value)
+        return super().__setattr__(name, value)
+
+    backend = param.Selector(
+        default="matplotlib",
+        objects=list(SUPPORTED_PLOTTING_BACKENDS),
+        doc=f"""
+        Plotting backend corresponding to the trace. Can be one of
+        {SUPPORTED_PLOTTING_BACKENDS}""",
+    )
+
+    constructor = param.String(
+        doc="""
+        Model constructor function or method to be called to build a 3D-model object
+        (e.g. 'plot_trisurf', 'Mesh3d). Must be in accordance with the given plotting backend."""
+    )
+
+    args = param.Parameter(
+        doc="""
+        Tuple or callable returning a tuple containing positional arguments for building a
+        3D-model object."""
+    )
+
+    kwargs = param.Parameter(
+        doc="""
+        Dictionary or callable returning a dictionary containing the keys/values pairs for
+        building a 3D-model object."""
+    )
+
+    coordsargs = param.Dict(
+        default={"x": "x", "y": "y", "z": "z"},
+        doc="""
+        Tells Magpylib the name of the coordinate arrays to be moved or rotated.
+        by default: `{"x": "x", "y": "y", "z": "z"}`""",
+    )
+
+    show = param.Boolean(
+        default=True,
+        doc="""Shows/hides model3d object based on provided trace.""",
+    )
+
+    scale = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, False),
+        softbounds=(0.1, 5),
+        doc="""
+        Scaling factor by which the trace vertices coordinates should be multiplied by.
+        Be aware that if the object is not centered at the global CS origin, its position will also
+        be affected by scaling.""",
+    )
+
+    updatefunc = param.Parameter(
+        doc="""
+        Callable object with no arguments. Should return a dictionary with keys from the
+        trace parameters. If provided, the function is called at `show` time and updates the
+        trace parameters with the output dictionary. This allows to update a trace dynamically
+        depending on class attributes, and postpone the trace construction to when the object is
+        displayed."""
+    )
+
+    def _validate_coordsargs(self, value):
+        if value is None:
+            value = {"x": "x", "y": "y", "z": "z"}
+        assert isinstance(value, dict) and all(key in value for key in "xyz"), (
+            f"the `coordsargs` property of {type(self).__name__} must be "
+            f"a dictionary with `'x', 'y', 'z'` keys"
+            f" but received {repr(value)} instead"
         )
-        self.reset()
+        return value
+
+    def _validate_updatefunc(self, val):
+        """Validate updatefunc."""
+        if val is None:
+
+            def val():
+                return {}
+
+        msg = ""
+        valid_keys = self.param.values().keys()
+        if not callable(val):
+            msg = f"Instead received {type(val)}"
+        else:
+            test_val = val()
+            if not isinstance(test_val, dict):
+                msg = f"but callable returned type {type(test_val)}."
+            else:
+                bad_keys = [k for k in test_val.keys() if k not in valid_keys]
+                if bad_keys:
+                    msg = f"but invalid output dictionary keys received: {bad_keys}."
+
+        assert msg == "", (
+            f"The `updatefunc` property of {type(self).__name__} must be a callable returning a "
+            f"dictionary with a subset of following keys: {list(valid_keys)}.\n"
+            f"{msg}"
+        )
+        return val
+
+
+class Model3d(MagicParameterized):
+    """Defines properties for the 3d model representation of magpylib objects."""
+
+    def __setattr__(self, name, value):
+        if name == "data":
+            value = self._validate_data(value)
+        return super().__setattr__(name, value)
+
+    showdefault = param.Boolean(
+        default=True,
+        doc="""Shows/hides default 3D-model.""",
+    )
+
+    data = param.List(
+        item_type=Trace3d,
+        doc="""
+        A trace or list of traces where each is an instance of `Trace3d` or dictionary of equivalent
+        key/value pairs. Defines properties for an additional user-defined model3d object which is
+        positioned relatively to the main object to be displayed and moved automatically with it.
+        This feature also allows the user to replace the original 3d representation of the object.
+        """,
+    )
+
+    def _validate_data(self, traces):
+        if traces is None:
+            traces = []
+        elif not isinstance(traces, (list, tuple)):
+            traces = [traces]
+        new_traces = []
+        for trace in traces:
+            updatefunc = None
+            if not isinstance(trace, Trace3d) and callable(trace):
+                updatefunc = trace
+                trace = Trace3d()
+            if isinstance(trace, dict):
+                trace = Trace3d(**trace)
+            if updatefunc is not None:
+                trace.updatefunc = updatefunc
+            new_traces.append(trace)
+        return new_traces
+
+    def add_trace(self, trace=None, **kwargs):
+        """Adds user-defined 3d model object which is positioned relatively to the main object to be
+        displayed and moved automatically with it. This feature also allows the user to replace the
+        original 3d representation of the object.
+
+        trace: Trace3d instance, dict or callable
+            Trace object. Can be a `Trace3d` instance or an dictionary with equivalent key/values
+            pairs, or a callable returning the equivalent dictionary.
+
+        backend: str
+            Plotting backend corresponding to the trace. Can be one of `['matplotlib', 'plotly']`.
+
+        constructor: str
+            Model constructor function or method to be called to build a 3D-model object
+            (e.g. 'plot_trisurf', 'Mesh3d). Must be in accordance with the given plotting backend.
+
+        args: tuple, default=None
+            Tuple or callable returning a tuple containing positional arguments for building a
+            3D-model object.
+
+        kwargs: dict or callable, default=None
+            Dictionary or callable returning a dictionary containing the keys/values pairs for
+            building a 3D-model object.
+
+        coordsargs: dict, default=None
+            Tells magpylib the name of the coordinate arrays to be moved or rotated,
+                by default: `{"x": "x", "y": "y", "z": "z"}`, if False, object is not rotated.
+
+        show: bool, default=None
+            Shows/hides model3d object based on provided trace.
+
+        scale: float, default=1
+            Scaling factor by which the trace vertices coordinates are multiplied.
+
+        updatefunc: callable, default=None
+            Callable object with no arguments. Should return a dictionary with keys from the
+            trace parameters. If provided, the function is called at `show` time and updates the
+            trace parameters with the output dictionary. This allows to update a trace dynamically
+            depending on class attributes, and postpone the trace construction to when the object is
+            displayed.
+        """
+
+        new_trace = Trace3d(trace=trace, **kwargs)
+        self.data = list(self.data) + [new_trace]
+        return self
+
+
+class BaseStyle(MagicParameterized):
+    """Base class for display styling options of `BaseGeo` objects"""
+
+    label = param.String(doc="Label of the class instance, can be any string.")
+
+    description = param.ClassSelector(
+        Description,
+        default=Description(),
+        doc="Object description properties such as `text` and `show`.",
+    )
+
+    color = param.Color(
+        default=None,
+        allow_None=True,
+        doc="A valid css color. Can also be one of `['r', 'g', 'b', 'y', 'm', 'c', 'k', 'w']`.",
+    )
+
+    opacity = param.Number(
+        default=1,
+        bounds=(0, 1),
+        doc="Object opacity between 0 and 1, where 1 is fully opaque and 0 is fully transparent.",
+    )
+
+    path = param.ClassSelector(
+        Path,
+        default=Path(),
+        doc="""
+        An instance of `Path` or dictionary of equivalent key/value pairs, defining the object path
+        marker and path line properties.""",
+    )
+
+    model3d = param.ClassSelector(
+        Model3d,
+        default=Model3d(),
+        doc=(
+            """
+        A list of traces where each is an instance of `Trace3d` or dictionary of equivalent
+        key/value pairs. Defines properties for an additional user-defined model3d object which is
+        positioned relatively to the main object to be displayed and moved automatically with it.
+        This feature also allows the user to replace the original 3d representation of the object.
+        """
+        ),
+    )
+
+
+class MagnetizationColor(MagicParameterized):
+    """Defines the magnetization direction color styling properties."""
+
+    _allowed_modes = ("bicolor", "tricolor", "tricycle")
+
+    north = param.Color(
+        default="red",
+        doc="""
+        The color of the magnetic north pole. Must be a valid css color or one of
+        `['r', 'g', 'b', 'y', 'm', 'c', 'k', 'w']`.""",
+    )
+
+    south = param.Color(
+        default="green",
+        doc="""
+        The color of the magnetic south pole. Must be a valid css color or one of
+        `['r', 'g', 'b', 'y', 'm', 'c', 'k', 'w']`.""",
+    )
+
+    middle = param.Color(
+        default="grey",
+        doc="""
+        The color between the magnetic poles. Must be a valid css color or one of
+        `['r', 'g', 'b', 'y', 'm', 'c', 'k', 'w']`.""",
+    )
+
+    transition = param.Number(
+        default=0.2,
+        bounds=(0, 1),
+        inclusive_bounds=(True, True),
+        doc="""
+        Sets the transition smoothness between poles colors. Must be between 0 and 1.
+        - `transition=0`: discrete transition
+        - `transition=1`: smoothest transition
+        """,
+    )
+
+    mode = param.Selector(
+        default="tricolor",
+        objects=_allowed_modes,
+        doc="""
+        Sets the coloring mode for the magnetization.
+        - `'bicolor'`: only north and south poles are shown, middle color is hidden.
+        - `'tricolor'`: both pole colors and middle color are shown.
+        - `'tricycle'`: both pole colors are shown and middle color is replaced by a color cycling
+        through the color sequence.""",
+    )
+
+
+class Magnetization(MagicParameterized):
+    """Defines magnetization styling properties"""
+
+    show = param.Boolean(
+        default=True,
+        doc="""Show/hide magnetization based on active plotting backend""",
+    )
+
+    size = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, True),
+        softbounds=(1, 5),
+        doc="""
+        Arrow size of the magnetization direction (for the matplotlib backend only), only applies if
+        `show=True`""",
+    )
+
+    color = param.ClassSelector(
+        MagnetizationColor,
+        default=MagnetizationColor(),
+        doc="""
+        Color properties showing the magnetization direction (for the plotly backend), only applies
+        if `show=True`""",
+    )
+
+
+class MagnetSpecific(MagicParameterized):
+    """Defines the specific styling properties of objects of the `Magnet` family."""
+
+    magnetization = param.ClassSelector(
+        Magnetization,
+        default=Magnetization(),
+        doc="""
+        Magnetization styling with `'show'`, `'size'`, `'color'` properties or a dictionary with
+        equivalent key/value pairs""",
+    )
+
+
+class MagnetStyle(BaseStyle, MagnetSpecific):
+    """Defines the styling properties of objects of the `Magnet` family."""
+
+
+class ArrowSingle(MagicParameterized):
+    """Single coordinate system arrow properties"""
+
+    show = param.Boolean(
+        default=True,
+        doc="""Show/hide single CS arrow""",
+    )
+
+    color = param.Color(
+        default=None,
+        allow_None=True,
+        doc="""
+        The color of a single CS arrow. Must be a valid css color or one of
+        `['r', 'g', 'b', 'y', 'm', 'c', 'k', 'w']`.""",
+    )
+
+
+class ArrowX(ArrowSingle):
+    """Single coordinate system x-arrow properties"""
+
+
+class ArrowY(ArrowSingle):
+    """Single coordinate system y-arrow properties"""
+
+
+class ArrowZ(ArrowSingle):
+    """Single coordinate system z-arrow properties"""
+
+
+class ArrowCS(MagicParameterized):
+    """Triple coordinate system arrow properties"""
+
+    x = param.ClassSelector(
+        ArrowX,
+        default=ArrowX(),
+        doc="""
+        `Arrowsingle` class or dict with equivalent key/value pairs for x-direction
+        (e.g. `color`, `show`)""",
+    )
+
+    y = param.ClassSelector(
+        ArrowY,
+        default=ArrowY(),
+        doc="""
+        `Arrowsingle` class or dict with equivalent key/value pairs for y-direction
+        (e.g. `color`, `show`)""",
+    )
+
+    z = param.ClassSelector(
+        ArrowZ,
+        default=ArrowZ(),
+        doc="""
+        `Arrowsingle` class or dict with equivalent key/value pairs for z-direction
+        (e.g. `color`, `show`)""",
+    )
+
+
+class Pixel(MagicParameterized):
+    """Defines the styling properties of sensor pixels"""
+
+    size = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, None),
+        softbounds=(0.5, 2),
+        doc="""
+        The relative pixel size.
+        - matplotlib backend: pixel size is the marker size
+        - plotly backend:  relative size to the distance of nearest neighboring pixel""",
+    )
+
+    color = param.Color(
+        default=None,
+        allow_None=True,
+        doc="""
+        The color of sensor pixel. Must be a valid css color or one of
+        `['r', 'g', 'b', 'y', 'm', 'c', 'k', 'w']`.""",
+    )
+
+    symbol = param.Selector(
+        default="o",
+        objects=list(SYMBOLS_MATPLOTLIB_TO_PLOTLY.keys()),
+        doc=f"""
+        Marker symbol. Can be one of:
+        {list(SYMBOLS_MATPLOTLIB_TO_PLOTLY.keys())}""",
+    )
+
+
+class SensorSpecific(MagicParameterized):
+    """Defines the specific styling properties of objects of the `sensor` family"""
+
+    size = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, True),
+        softbounds=(1, 5),
+        doc="""Sensor size relative to the canvas size.""",
+    )
+
+    arrows = param.ClassSelector(
+        ArrowCS,
+        default=ArrowCS(),
+        doc="""`ArrowCS` class or dict with equivalent key/value pairs (e.g. `color`, `size`)""",
+    )
+
+    pixel = param.ClassSelector(
+        Pixel,
+        default=Pixel(),
+        doc="""`Pixel` class or dict with equivalent key/value pairs (e.g. `color`, `size`)""",
+    )
+
+
+class SensorStyle(BaseStyle, SensorSpecific):
+    """Defines the styling properties of objects of the `sensor` family"""
+
+
+class CurentArrow(MagicParameterized):
+    """Defines the styling properties of current arrows."""
+
+    show = param.Boolean(
+        default=True,
+        doc="""Show/hide current direction arrow""",
+    )
+
+    size = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, True),
+        softbounds=(0.5, 5),
+        doc="""The current arrow size""",
+    )
+
+    width = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, None),
+        softbounds=(0.5, 5),
+        doc="""The current arrow width""",
+    )
+
+
+class CurrentSpecific(MagicParameterized):
+    """Defines the specific styling properties of objects of the `current` family."""
+
+    arrow = param.ClassSelector(
+        CurentArrow,
+        default=CurentArrow(),
+        doc="""
+        `CurentArrow` class or dict with equivalent key/value pairs
+        (e.g. `'show'`, `'size')""",
+    )
+
+
+class CurrentStyle(BaseStyle, CurrentSpecific):
+    """Defines the styling properties of objects of the `current` family."""
+
+
+class MarkersStyle(BaseStyle):
+    """Defines the styling properties of the markers trace."""
+
+    marker = param.ClassSelector(
+        Marker,
+        default=Marker(),
+        doc="""
+        Marker class with `'color'``, 'symbol'`, `'size'` properties, or dictionary with equivalent
+        key/value pairs""",
+    )
+
+
+class DipoleSpecific(MagicParameterized):
+    """Defines the specific styling properties of the objects of the `dipole` family"""
+
+    _allowed_pivots = ("tail", "middle", "tip")
+
+    size = param.Number(
+        default=1,
+        bounds=(0, None),
+        inclusive_bounds=(True, True),
+        softbounds=(0.5, 5),
+        doc="""The dipole arrow size relative to the canvas size""",
+    )
+
+    pivot = param.Selector(
+        default="middle",
+        objects=_allowed_pivots,
+        doc="""The part of the arrow that is anchored to the X, Y grid. The arrow rotates about
+        this point. Can be one of `['tail', 'middle', 'tip']`""",
+    )
+
+
+class DipoleStyle(BaseStyle, DipoleSpecific):
+    """Defines the styling properties of the objects of the `dipole` family."""
+
+
+class DisplayStyle(MagicParameterized):
+    """
+    Base class containing styling properties for all object families. The properties of the
+    sub-classes get set to hard coded defaults at class instantiation.
+    """
+
+    def reset(self):
+        """Resets all nested properties to their hard coded default values"""
+        self.update(get_defaults_dict("display.style"), _match_properties=False)
+        return self
+
+    base = param.ClassSelector(
+        BaseStyle, default=BaseStyle(), doc="""Base properties common to all families"""
+    )
+
+    magnet = param.ClassSelector(
+        MagnetSpecific, default=MagnetSpecific(), doc="""Magnet properties"""
+    )
+
+    current = param.ClassSelector(
+        CurrentSpecific, default=CurrentSpecific(), doc="""Current properties"""
+    )
+
+    dipole = param.ClassSelector(
+        DipoleSpecific, default=DipoleSpecific(), doc="""Dipole properties"""
+    )
+
+    sensor = param.ClassSelector(
+        SensorSpecific, default=SensorSpecific(), doc="""Sensor properties"""
+    )
+
+    markers = param.ClassSelector(
+        MarkersStyle, default=MarkersStyle(), doc="""Markers properties"""
+    )
+
+
+class Animation(MagicParameterized):
+    """
+    Defines the animation properties used by the `plotly` plotting backend when `animation=True`
+    in the `display` function.
+    """
+
+    fps = param.Integer(
+        default=30,
+        bounds=(0, None),
+        inclusive_bounds=(False, None),
+        doc="""Target number of frames to be displayed per second.""",
+    )
+
+    maxfps = param.Integer(
+        default=50,
+        bounds=(0, None),
+        inclusive_bounds=(False, None),
+        doc="""Maximum number of frames to be displayed per second before downsampling kicks in.""",
+    )
+
+    maxframes = param.Integer(
+        default=200,
+        bounds=(0, None),
+        inclusive_bounds=(False, None),
+        doc="""Maximum total number of frames to be displayed before downsampling kicks in.""",
+    )
+
+    time = param.Number(
+        default=5,
+        bounds=(0, None),
+        inclusive_bounds=(False, None),
+        doc="""Default animation time.""",
+    )
+
+    slider = param.Boolean(
+        default=True,
+        doc="""
+        If True, an interactive slider will be displayed and stay in sync with the animation,
+        will be hidden otherwise.""",
+    )
+
+
+class Display(MagicParameterized):
+    """Defines the display properties for the plotting features"""
+
+    def __setattr__(self, name, value):
+        if name == "colorsequence":
+            value = [
+                color_validator(v, allow_None=False, parent_name="Colorsequence")
+                for v in value
+            ]
+        return super().__setattr__(name, value)
+
+    backend = param.Selector(
+        default="matplotlib",
+        objects=list(SUPPORTED_PLOTTING_BACKENDS),
+        doc=f"""
+        Plotting backend corresponding to the trace. Can be one of
+        {SUPPORTED_PLOTTING_BACKENDS}""",
+    )
+
+    colorsequence = param.List(
+        default=[
+            "#2E91E5",
+            "#E15F99",
+            "#1CA71C",
+            "#FB0D0D",
+            "#DA16FF",
+            "#222A2A",
+            "#B68100",
+            "#750D86",
+            "#EB663B",
+            "#511CFB",
+            "#00A08B",
+            "#FB00D1",
+            "#FC0080",
+            "#B2828D",
+            "#6C7C32",
+            "#778AAE",
+            "#862A16",
+            "#A777F1",
+            "#620042",
+            "#1616A7",
+            "#DA60CA",
+            "#6C4516",
+            "#0D2A63",
+            "#AF0038",
+        ],
+        doc="""
+        A list of color values used to cycle trough for every object displayed.
+        A color and may be specified as:
+        - An rgb string (e.g. 'rgb(255,0,0)')
+        - A named CSS color (e.g. 'magenta')
+        - A hex string (e.g. '#B68100')""",
+    )
+
+    animation = param.ClassSelector(
+        Animation,
+        default=Animation(),
+        doc="""
+        The animation properties used when `animation=True` in the `show` function. This settings
+        only apply to the `plotly` plotting backend for the moment""",
+    )
+
+    autosizefactor = param.Number(
+        default=10,
+        bounds=(0, None),
+        inclusive_bounds=(False, True),
+        softbounds=(5, 15),
+        doc="""
+        Defines at which scale objects like sensors and dipoles are displayed.
+        -> object_size = canvas_size / AUTOSIZE_FACTOR""",
+    )
+
+    style = param.ClassSelector(
+        DisplayStyle,
+        default=DisplayStyle(),
+        doc="""Base display default-class containing styling properties for all object families.""",
+    )
+
+
+class DefaultConfig(MagicParameterized):
+    """Library default settings. All default values get reset at class instantiation."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._declare_watchers()
+        with param.parameterized.batch_call_watchers(self):
+            self.reset()
 
     def reset(self):
         """Resets all nested properties to their hard coded default values"""
         self.update(get_defaults_dict(), _match_properties=False)
         return self
 
-    @property
-    def display(self):
-        """`Display` class containing display settings.
-        `('backend', 'animation', 'colorsequence')`"""
-        return self._display
+    def _declare_watchers(self):
+        props = get_defaults_dict(flatten=True, separator=".").keys()
+        for prop in props:
+            attrib_chain = prop.split(".")
+            child = attrib_chain[-1]
+            parent = self  # start with self to go through dot chain
+            for attrib in attrib_chain[:-1]:
+                parent = getattr(parent, attrib)
+            parent.param.watch(self._set_to_defaults, parameter_names=[child])
 
-    @display.setter
-    def display(self, val):
-        self._display = validate_property_class(val, "display", Display, self)
+    @staticmethod
+    def _set_to_defaults(event):
+        """Sets class defaults whenever magpylib defaults attributes as set"""
+        event.obj.param.set_default(event.name, event.new)
 
-
-class Display(MagicProperties):
-    """
-    Defines the properties for the plotting features.
-
-    Properties
-    ----------
-    backend: str, default='matplotlib'
-        Defines the plotting backend to be used by default, if not explicitly set in the `display`
-        function. Can be one of `['matplotlib', 'plotly']`
-
-    colorsequence: iterable, default=
-            ['#2E91E5', '#E15F99', '#1CA71C', '#FB0D0D', '#DA16FF', '#222A2A',
-            '#B68100', '#750D86', '#EB663B', '#511CFB', '#00A08B', '#FB00D1',
-            '#FC0080', '#B2828D', '#6C7C32', '#778AAE', '#862A16', '#A777F1',
-            '#620042', '#1616A7', '#DA60CA', '#6C4516', '#0D2A63', '#AF0038']
-        An iterable of color values used to cycle trough for every object displayed.
-        A color may be specified by
-      - a hex string (e.g. '#ff0000')
-      - an rgb/rgba string (e.g. 'rgb(255,0,0)')
-      - an hsl/hsla string (e.g. 'hsl(0,100%,50%)')
-      - an hsv/hsva string (e.g. 'hsv(0,100%,100%)')
-      - a named CSS color
-
-    animation: dict or Animation
-        Defines the animation properties used by the `plotly` plotting backend when `animation=True`
-        in the `show` function.
-
-    autosizefactor: int, default=10
-        Defines at which scale objects like sensors and dipoles are displayed.
-        Specifically `object_size` = `canvas_size` / `AUTOSIZE_FACTOR`.
-
-    styles: dict or DisplayStyle
-        Base class containing display styling properties for all object families.
-    """
-
-    @property
-    def backend(self):
-        """plotting backend to be used by default, if not explicitly set in the `display`
-        function. Can be one of `['matplotlib', 'plotly']`"""
-        return self._backend
-
-    @backend.setter
-    def backend(self, val):
-        assert val is None or val in SUPPORTED_PLOTTING_BACKENDS, (
-            f"the `backend` property of {type(self).__name__} must be one of"
-            f"{SUPPORTED_PLOTTING_BACKENDS}"
-            f" but received {repr(val)} instead"
-        )
-        self._backend = val
-
-    @property
-    def colorsequence(self):
-        """An iterable of color values used to cycle trough for every object displayed.
-          A color may be specified by
-        - a hex string (e.g. '#ff0000')
-        - an rgb/rgba string (e.g. 'rgb(255,0,0)')
-        - an hsl/hsla string (e.g. 'hsl(0,100%,50%)')
-        - an hsv/hsva string (e.g. 'hsv(0,100%,100%)')
-        - a named CSS color"""
-        return self._colorsequence
-
-    @colorsequence.setter
-    def colorsequence(self, val):
-        assert val is None or all(color_validator(c, allow_None=False) for c in val), (
-            f"the `colorsequence` property of {type(self).__name__} must be one an iterable of"
-            f"color sequences"
-            f" but received {repr(val)} instead"
-        )
-        self._colorsequence = val
-
-    @property
-    def animation(self):
-        """Animation properties used by the `plotly` plotting backend when `animation=True`
-        in the `show` function."""
-        return self._animation
-
-    @animation.setter
-    def animation(self, val):
-        self._animation = validate_property_class(val, "animation", Animation, self)
-
-    @property
-    def autosizefactor(self):
-        """Defines at which scale objects like sensors and dipoles are displayed.
-        Specifically `object_size` = `canvas_size` / `AUTOSIZE_FACTOR`."""
-        return self._autosizefactor
-
-    @autosizefactor.setter
-    def autosizefactor(self, val):
-        assert val is None or isinstance(val, (int, float)) and val > 0, (
-            f"the `autosizefactor` property of {type(self).__name__} must be a strictly positive"
-            f" number but received {repr(val)} instead"
-        )
-        self._autosizefactor = val
-
-    @property
-    def style(self):
-        """Base class containing display styling properties for all object families."""
-        return self._style
-
-    @style.setter
-    def style(self, val):
-        self._style = validate_property_class(val, "style", DisplayStyle, self)
-
-
-class Animation(MagicProperties):
-    """
-    Defines the animation properties used by the `plotly` plotting backend when `animation=True`
-    in the `display` function.
-
-    Properties
-    ----------
-    fps: str, default=30
-        Target number of frames to be displayed per second.
-
-    maxfps: str, default=50
-        Maximum number of frames to be displayed per second before downsampling kicks in.
-
-    maxframes: int, default=200
-        Maximum total number of frames to be displayed before downsampling kicks in.
-
-    time: float, default=5
-        Default animation time.
-
-    slider: bool, default = True
-        If True, an interactive slider will be displayed and stay in sync with the animation, will
-        be hidden otherwise.
-    """
-
-    @property
-    def maxfps(self):
-        """Maximum number of frames to be displayed per second before downsampling kicks in."""
-        return self._maxfps
-
-    @maxfps.setter
-    def maxfps(self, val):
-        assert val is None or isinstance(val, int) and val > 0, (
-            f"The `maxfps` property of {type(self).__name__} must be a strictly positive"
-            f" integer but received {repr(val)} instead."
-        )
-        self._maxfps = val
-
-    @property
-    def fps(self):
-        """Target number of frames to be displayed per second."""
-        return self._fps
-
-    @fps.setter
-    def fps(self, val):
-        assert val is None or isinstance(val, int) and val > 0, (
-            f"The `fps` property of {type(self).__name__} must be a strictly positive"
-            f" integer but received {repr(val)} instead."
-        )
-        self._fps = val
-
-    @property
-    def maxframes(self):
-        """Maximum total number of frames to be displayed before downsampling kicks in."""
-        return self._maxframes
-
-    @maxframes.setter
-    def maxframes(self, val):
-        assert val is None or isinstance(val, int) and val > 0, (
-            f"The `maxframes` property of {type(self).__name__} must be a strictly positive"
-            f" integer but received {repr(val)} instead."
-        )
-        self._maxframes = val
-
-    @property
-    def time(self):
-        """Default animation time."""
-        return self._time
-
-    @time.setter
-    def time(self, val):
-        assert val is None or isinstance(val, int) and val > 0, (
-            f"The `time` property of {type(self).__name__} must be a strictly positive"
-            f" integer but received {repr(val)} instead."
-        )
-        self._time = val
-
-    @property
-    def slider(self):
-        """show/hide slider"""
-        return self._slider
-
-    @slider.setter
-    def slider(self, val):
-        assert val is None or isinstance(val, bool), (
-            f"The `slider` property of {type(self).__name__} must be a either `True` or `False`"
-            f" but received {repr(val)} instead."
-        )
-        self._slider = val
+    display = param.ClassSelector(
+        Display,
+        default=Display(),
+        doc="""
+        `Display` defaults-class containing display settings.
+        `(e.g. 'backend', 'animation', 'colorsequence', ...)`""",
+    )
 
 
 default_settings = DefaultConfig()
+
+STYLE_CLASSES = defaultdict(BaseStyle)
+STYLE_CLASSES.update(
+    {
+        "magnet": MagnetStyle,
+        "current": CurrentStyle,
+        "dipole": DipoleStyle,
+        "sensor": SensorStyle,
+        "markers": MarkersStyle,
+    }
+)
