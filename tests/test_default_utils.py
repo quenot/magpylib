@@ -2,6 +2,8 @@ from copy import deepcopy
 
 import pytest
 
+import param
+
 from magpylib._src.defaults.defaults_utility import color_validator
 from magpylib._src.defaults.defaults_utility import COLORS_MATPLOTLIB_TO_PLOTLY
 from magpylib._src.defaults.defaults_utility import get_defaults_dict
@@ -141,79 +143,76 @@ def test_bad_colors(color, allow_None, expected_exception):
 def test_MagicParameterized():
     """test MagicParameterized class"""
 
-    class BPsub1(MagicParameterized):
-        "MagicParameterized class"
+    class MagicParam1(MagicParameterized):
+        "MagicParameterized test subclass"
 
-        @property
-        def prop1(self):
-            """prop1"""
-            return self._prop1
+        listparam = param.List()
 
-        @prop1.setter
-        def prop1(self, val):
-            self._prop1 = val
+    class MagicParam2(MagicParameterized):
+        "MagicParameterized test subclass"
 
-    class BPsub2(MagicParameterized):
-        "MagicParameterized class"
+        tupleparam = param.Tuple(allow_None=True)
+        classselector = param.ClassSelector(MagicParam1, default=MagicParam1())
 
-        @property
-        def prop2(self):
-            """prop2"""
-            return self._prop2
-
-        @prop2.setter
-        def prop2(self, val):
-            self._prop2 = val
-
-    bp1 = BPsub1(prop1=1)
+    mp1 = MagicParam1(listparam=(1,))
 
     # check setting attribute/property
-    assert bp1.prop1 == 1, "`bp1.prop1` should be `1`"
+    assert mp1.listparam == [1], "`mp1.listparam` should be `[1]`"
     with pytest.raises(AttributeError):
-        getattr(bp1, "prop1e")  # only properties are allowed to be set
+        setattr(mp1, "listparame", 2)  # only properties are allowed to be set
 
-    assert bp1.as_dict() == {"prop1": 1}, "`as_dict` method failed"
-
-    bp2 = BPsub2(prop2=2)
-    bp1.prop1 = bp2  # assigning class to subproperty
+    # check assigning class to subproperty
+    mp2 = MagicParam2(tupleparam=[2, 2])
+    mp2.classselector = mp1
 
     # check as_dict method
-    assert bp1.as_dict() == {"prop1": {"prop2": 2}}, "`as_dict` method failed"
+    assert mp1.as_dict() == {"listparam": [1]}, "`as_dict` method failed"
 
     # check update method with different parameters
-    assert bp1.update(prop1_prop2=10).as_dict() == {
-        "prop1": {"prop2": 10}
+    assert mp2.update(classselector_listparam=[10]).as_dict() == {
+        "tupleparam": (2, 2),
+        "classselector": {"listparam": [10]},
     }, "magic property setting failed"
 
-    with pytest.raises(AttributeError):
-        bp1.update(prop1_prop2=10, prop3=4)
-    assert bp1.update(prop1_prop2=10, prop3=4, _match_properties=False).as_dict() == {
-        "prop1": {"prop2": 10}
-    }, "magic property setting failed, should ignore `'prop3'`"
+    # check wrong attribute name in nested dict
+    with pytest.raises(ValueError):
+        mp1.update(listparam=dict(tupleparam=10))
 
-    assert bp1.update(prop1_prop2=20, _replace_None_only=True).as_dict() == {
-        "prop1": {"prop2": 10}
-    }, "magic property setting failed, `prop2` should be remained unchanged `10`"
+    # check match properties=False
+    assert mp2.update(
+        classselector_listparam=(10,), prop4=4, _match_properties=False
+    ).as_dict() == {
+        "tupleparam": (2, 2),
+        "classselector": {"listparam": [10]},
+    }, "magic property setting failed, should ignore `'prop4'`"
+
+    # check replace None only
+    mp2.tupleparam = None
+    assert mp2.update(
+        classselector_listparam=(25,), tupleparam=[1, 1], _replace_None_only=True
+    ).as_dict() == {
+        "tupleparam": (1, 1),
+        "classselector": {"listparam": [10]},
+    }, "magic property setting failed, `tupleparam` should be remained unchanged `(1, 1)`"
 
     # check copy method
-
-    bp3 = bp2.copy()
-    assert bp3 is not bp2, "failed copying, should return a different id"
+    mp3 = mp2.copy()
+    assert mp3 is not mp2, "failed copying, should return a different id"
     assert (
-        bp3.as_dict() == bp2.as_dict()
+        mp3.as_dict() == mp2.as_dict()
     ), "failed copying, should return the same property values"
 
+    # check update with param object
+    assert mp2.update(mp3) is mp2
+
     # check flatten dict
-    assert bp3.as_dict(flatten=True) == bp2.as_dict(
+    assert mp3.as_dict(flatten=True) == mp2.as_dict(
         flatten=True
     ), "failed copying, should return the same property values"
 
     # check failing init
     with pytest.raises(AttributeError):
-        BPsub1(a=0)  # `a` is not a property in the class
-
-    # check repr
-    assert repr(MagicParameterized()) == "MagicParameterized()", "repr failed"
+        MagicParam1(a=0)  # `a` is not a property in the class
 
 
 def test_get_defaults_dict():

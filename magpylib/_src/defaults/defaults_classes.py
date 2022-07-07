@@ -110,7 +110,11 @@ class Path(MagicParameterized):
         if name == "frames":
             if isinstance(value, (tuple, list, np.ndarray)):
                 self.frames.indices = [int(v) for v in value]
-            elif isinstance(value, (int, np.integer)):
+            elif (
+                isinstance(value, (int, np.integer))
+                and value is not False
+                and value is not True
+            ):
                 self.frames.step = value
             else:
                 super().__setattr__(name, value)
@@ -188,14 +192,14 @@ class Trace3d(MagicParameterized):
         default=(),
         doc="""
         Tuple or callable returning a tuple containing positional arguments for building a
-        3D-model object."""
+        3D-model object.""",
     )
 
     kwargs = param.Parameter(
-        default = {},
+        default={},
         doc="""
         Dictionary or callable returning a dictionary containing the keys/values pairs for
-        building a 3D-model object."""
+        building a 3D-model object.""",
     )
 
     coordsargs = param.Dict(
@@ -266,6 +270,7 @@ class Trace3d(MagicParameterized):
             f"{msg}"
         )
         return val
+
 
 class Model3d(MagicParameterized):
     """Defines properties for the 3d model representation of magpylib objects."""

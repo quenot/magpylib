@@ -24,7 +24,7 @@ bad_inputs = {
     "display_style_base_path_marker_symbol": ("wrongsymbol",),
     "display_style_base_path_marker_color": ("wrongcolor",),  # color
     "display_style_base_path_show": ("notbool", 1),  # bool
-    "display_style_base_path_frames": (True, False, ["1"], "1"),  # int or iterable
+    "display_style_base_path_frames": (True, False, ["1a"], "1d"),  # int or iterable
     "display_style_base_path_numbering": ("notbool",),  # bool
     "display_style_base_description_show": ("notbool",),  # bool
     "display_style_base_description_text": (
@@ -68,13 +68,7 @@ def get_bad_test_data():
     bad_test_data = []
     for k, tup in bad_inputs.items():
         for v in tup:
-            if "description_text" not in k:
-                if "color" in k and "transition" not in k and "mode" not in k:
-                    # color attributes use a the color validator, which raises a ValueError
-                    errortype = ValueError
-                else:
-                    # all other parameters raise AssertionError
-                    errortype = AssertionError
+            errortype = ValueError
             bad_test_data.append((k, v, pytest.raises(errortype)))
     return bad_test_data
 
@@ -102,7 +96,7 @@ good_inputs = {
     "display_animation_slider": (True, False),  # bool
     "display_backend": tuple(SUPPORTED_PLOTTING_BACKENDS),  # str typo
     "display_colorsequence": (
-        ["#2E91E5", "#0D2A63"],
+        ["#2e91e5", "#0d2a63"],
         ["blue", "red"],
     ),  # ]),  # iterable of colors
     "display_style_base_path_line_width": (0, 1),  # float>=0
@@ -112,7 +106,8 @@ good_inputs = {
     "display_style_base_path_marker_symbol": SYMBOLS_MATPLOTLIB_TO_PLOTLY.keys(),
     "display_style_base_path_marker_color": ("blue", "#2E91E5"),  # color
     "display_style_base_path_show": (True, False),  # bool
-    "display_style_base_path_frames": (-1, (1, 3)),  # int or iterable
+    "display_style_base_path_frames_step": (-1,),  # int or iterable
+    "display_style_base_path_frames_indices": ([1, 3],),  # int or iterable
     "display_style_base_path_numbering": (True, False),  # bool
     "display_style_base_description_show": (True, False),  # bool
     "display_style_base_description_text": ("a string",),  # string

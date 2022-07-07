@@ -90,7 +90,7 @@ def get_style(obj, **kwargs):
 
 
 def get_defaults_dict(arg=None, flatten=False, separator=".") -> dict:
-    """returns default dict or sub-dict based on `arg`
+    """Return default dict or sub-dict based on `arg` (e.g. get_default_dict('display.style')).
 
     Returns
     -------
@@ -104,10 +104,6 @@ def get_defaults_dict(arg=None, flatten=False, separator=".") -> dict:
     separator: str
         the separator to be used when flattening the dictionary. Only applies if
         `flatten=True`
-
-    Examples
-    --------
-    >>> get_default_dict('display.style')
     """
 
     dict_ = deepcopy(DEFAULTS)
