@@ -166,7 +166,7 @@ class Trace3d(MagicParameterized):
 
     def __setattr__(self, name, value):
         validation_func = getattr(self, f"_validate_{name}", None)
-        if name is not None:
+        if validation_func is not None:
             value = validation_func(value)
         return super().__setattr__(name, value)
 
@@ -265,7 +265,6 @@ class Trace3d(MagicParameterized):
         )
         return val
 
-
 class Model3d(MagicParameterized):
     """Defines properties for the 3d model representation of magpylib objects."""
 
@@ -289,6 +288,19 @@ class Model3d(MagicParameterized):
         """,
     )
 
+    @staticmethod
+    def _validate_trace(trace, **kwargs):
+        updatefunc = None
+        if not isinstance(trace, Trace3d) and callable(trace):
+            updatefunc = trace
+            trace = Trace3d()
+        if isinstance(trace, dict):
+            trace = Trace3d(**trace)
+        trace.updatefunc = updatefunc
+        if kwargs:
+            trace.update(**kwargs)
+        return trace
+
     def _validate_data(self, traces):
         if traces is None:
             traces = []
@@ -296,15 +308,7 @@ class Model3d(MagicParameterized):
             traces = [traces]
         new_traces = []
         for trace in traces:
-            updatefunc = None
-            if not isinstance(trace, Trace3d) and callable(trace):
-                updatefunc = trace
-                trace = Trace3d()
-            if isinstance(trace, dict):
-                trace = Trace3d(**trace)
-            if updatefunc is not None:
-                trace.updatefunc = updatefunc
-            new_traces.append(trace)
+            new_traces.append(self._validate_trace(trace))
         return new_traces
 
     def add_trace(self, trace=None, **kwargs):
@@ -348,8 +352,10 @@ class Model3d(MagicParameterized):
             depending on class attributes, and postpone the trace construction to when the object is
             displayed.
         """
-
-        new_trace = Trace3d(trace=trace, **kwargs)
+        if trace is not None:
+            new_trace = self._validate_trace(trace, **kwargs)
+        else:
+            new_trace = Trace3d(**kwargs)
         self.data = list(self.data) + [new_trace]
         return self
 

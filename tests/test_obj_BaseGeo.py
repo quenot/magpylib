@@ -363,7 +363,7 @@ def test_copy():
 
     # check if label suffix iterated correctly
     assert bg1c.style.label == "label2"
-    assert bg2c.style.label is None
+    assert bg2c.style.label == ""
     assert bg3c.style.label == "BaseGeo_01"
 
     # check if style is passed correctly
@@ -467,55 +467,30 @@ def test_describe():
     # exclude=None test
     s = magpy.Sensor()
     desc = s.describe(exclude=None, return_string=True)
-    test = (
-        "Sensor(id=REGEX)\n"
-        + "  • parent: None \n"
-        + "  • position: [0. 0. 0.] mm\n"
-        + "  • orientation: [0. 0. 0.] degrees\n"
-        + "  • family: sensor \n"
-        + "  • pixel: 1 \n"
-        + "  • style: SensorStyle(arrows=ArrowCS(x=ArrowSingle(color=None, show=True), "
-        + "y=ArrowSingle(color=None, show=True), z=ArrowSingle(color=None, show=True)),"
-        + " color=None, description=Description(show=None, text=None), label=None, "
-        + "model3d=Model3d(data=[], showdefault=True), opacity=None, path=Path(frames=None,"
-        + " line=Line(color=None, style=None, width=None), marker=Marker(color=None,"
-        + " size=None, symbol=None), numbering=None, show=None), pixel=Pixel(color=None,"
-        + " size=1, symbol=None), size=None) "
-    )
+    test = [
+        "Sensor(id=REGEX)",
+        "  • parent: None ",
+        "  • position: [0. 0. 0.] mm",
+        "  • orientation: [0. 0. 0.] degrees",
+        "  • family: sensor ",
+        "  • pixel: 1 ",
+        "  • style: <SensorStyle SensorStyleREGEX> ",
+    ]
     desc = re.sub("id=*[0-9]*[0-9]", "id=REGEX", desc)
-    assert desc == test
+    desc = re.sub("SensorStyle=*[0-9]*[0-9]", "SensorStyleREGEX", desc)
 
-    # exclude=None test
-    s = magpy.Sensor()
-    desc = s.describe(exclude=None, return_string=True)
-    test = (
-        "Sensor(id=REGEX)\n"
-        + "  • parent: None \n"
-        + "  • position: [0. 0. 0.] mm\n"
-        + "  • orientation: [0. 0. 0.] degrees\n"
-        + "  • family: sensor \n"
-        + "  • pixel: 1 \n"
-        + "  • style: SensorStyle(arrows=ArrowCS(x=ArrowSingle(color=None, show=True), "
-        + "y=ArrowSingle(color=None, show=True), z=ArrowSingle(color=None, show=True)),"
-        + " color=None, description=Description(show=None, text=None), label=None, "
-        + "model3d=Model3d(data=[], showdefault=True), opacity=None, path=Path(frames=None,"
-        + " line=Line(color=None, style=None, width=None), marker=Marker(color=None,"
-        + " size=None, symbol=None), numbering=None, show=None), pixel=Pixel(color=None,"
-        + " size=1, symbol=None), size=None) "
-    )
-    desc = re.sub("id=*[0-9]*[0-9]", "id=REGEX", desc)
-    assert desc == test
+    assert"\n".join(test) == desc
 
     # lots of sensor pixel
     s = magpy.Sensor(pixel=[[[(1, 2, 3)] * 5] * 5] * 3)
     desc = s.describe(return_string=True)
-    test = (
-        "Sensor(id=REGEX)\n"
-        + "  • parent: None \n"
-        + "  • position: [0. 0. 0.] mm\n"
-        + "  • orientation: [0. 0. 0.] degrees\n"
-        + "  • family: sensor \n"
-        + "  • pixel: 75 (3x5x5) "
-    )
+    test = [
+        "Sensor(id=REGEX)",
+        "  • parent: None ",
+        "  • position: [0. 0. 0.] mm",
+        "  • orientation: [0. 0. 0.] degrees",
+        "  • family: sensor ",
+        "  • pixel: 75 (3x5x5) ",
+    ]
     desc = re.sub("id=*[0-9]*[0-9]", "id=REGEX", desc)
-    assert desc == test
+    assert "\n".join(test) == desc
