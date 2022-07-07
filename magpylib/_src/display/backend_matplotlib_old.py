@@ -709,7 +709,7 @@ def display_matplotlib_old(
     # markers -------------------------------------------------------
     if markers_list:
         markers_instance = markers_list[0]
-        style = get_style(markers_instance, Config, **kwargs)
+        style = get_style(markers_instance, **kwargs)
         markers = np.array(markers_instance.markers)
         s = style.marker
         draw_markers(markers, ax, s.color, s.symbol, s.size)
@@ -734,11 +734,11 @@ def display_matplotlib_old(
     # not optimal for loop if many sensors/dipoles
     for sens in sensors:
         sensor, color = sens
-        style = get_style(sensor, Config, **kwargs)
+        style = get_style(sensor, **kwargs)
         draw_sensors([sensor], ax, sys_size, path_frames, style.size, style.arrows)
     for dip in dipoles:
         dipole, color = dip
-        style = get_style(dipole, Config, **kwargs)
+        style = get_style(dipole, **kwargs)
         draw_dipoles(
             [dipole], ax, sys_size, path_frames, style.size, color, style.pivot
         )

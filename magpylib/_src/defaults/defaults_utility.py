@@ -57,6 +57,7 @@ def get_style_class(obj):
     """Return style instance based on object type. If object has no attribute `_object_type` or is
     not found in `Registered.famillies` returns `BaseStyle` instance."""
     # pylint: disable=import-outside-toplevel
+    # pylint: disable=cyclic-import
     from magpylib._src.defaults.defaults_classes import STYLE_CLASSES
 
     obj_type = getattr(obj, "_object_type", None)
