@@ -185,22 +185,26 @@ class Trace3d(MagicParameterized):
     )
 
     args = param.Parameter(
+        default=(),
         doc="""
         Tuple or callable returning a tuple containing positional arguments for building a
         3D-model object."""
     )
 
     kwargs = param.Parameter(
+        default = {},
         doc="""
         Dictionary or callable returning a dictionary containing the keys/values pairs for
         building a 3D-model object."""
     )
 
     coordsargs = param.Dict(
-        default={"x": "x", "y": "y", "z": "z"},
+        default=None,
         doc="""
         Tells Magpylib the name of the coordinate arrays to be moved or rotated.
-        by default: `{"x": "x", "y": "y", "z": "z"}`""",
+        by default:
+            - plotly backend: `{"x": "x", "y": "y", "z": "z"}`
+            - matplotlib backend: `{"x": "args[0]", "y": "args[1]", "z": "args[2]}"`""",
     )
 
     show = param.Boolean(
@@ -219,7 +223,7 @@ class Trace3d(MagicParameterized):
         be affected by scaling.""",
     )
 
-    updatefunc = param.Parameter(
+    updatefunc = param.Callable(
         doc="""
         Callable object with no arguments. Should return a dictionary with keys from the
         trace parameters. If provided, the function is called at `show` time and updates the
@@ -229,8 +233,6 @@ class Trace3d(MagicParameterized):
     )
 
     def _validate_coordsargs(self, value):
-        if value is None:
-            value = {"x": "x", "y": "y", "z": "z"}
         assert isinstance(value, dict) and all(key in value for key in "xyz"), (
             f"the `coordsargs` property of {type(self).__name__} must be "
             f"a dictionary with `'x', 'y', 'z'` keys"
@@ -291,14 +293,18 @@ class Model3d(MagicParameterized):
     @staticmethod
     def _validate_trace(trace, **kwargs):
         updatefunc = None
+        if trace is None:
+            trace = Trace3d()
         if not isinstance(trace, Trace3d) and callable(trace):
             updatefunc = trace
             trace = Trace3d()
         if isinstance(trace, dict):
             trace = Trace3d(**trace)
-        trace.updatefunc = updatefunc
-        if kwargs:
-            trace.update(**kwargs)
+        if isinstance(trace, Trace3d):
+            trace.updatefunc = updatefunc
+            if kwargs:
+                trace.update(**kwargs)
+            trace.update(trace.updatefunc())
         return trace
 
     def _validate_data(self, traces):
@@ -352,11 +358,7 @@ class Model3d(MagicParameterized):
             depending on class attributes, and postpone the trace construction to when the object is
             displayed.
         """
-        if trace is not None:
-            new_trace = self._validate_trace(trace, **kwargs)
-        else:
-            new_trace = Trace3d(**kwargs)
-        self.data = list(self.data) + [new_trace]
+        self.data = list(self.data) + [self._validate_trace(trace, **kwargs)]
         return self
 
 
