@@ -16,8 +16,8 @@ from magpylib._src.defaults.defaults_utility import linearize_dict
 from magpylib._src.display.traces_utility import place_and_orient_model3d
 from magpylib._src.display.traces_utility import get_scene_ranges
 from magpylib._src.defaults.defaults_utility import SIZE_FACTORS_MATPLOTLIB_TO_PLOTLY
-from magpylib._src.style import LINESTYLES_MATPLOTLIB_TO_PLOTLY
-from magpylib._src.style import SYMBOLS_MATPLOTLIB_TO_PLOTLY
+from magpylib._src.defaults.defaults_utility import LINESTYLES_MATPLOTLIB_TO_PLOTLY
+from magpylib._src.defaults.defaults_utility import SYMBOLS_MATPLOTLIB_TO_PLOTLY
 
 
 def apply_fig_ranges(fig, ranges):

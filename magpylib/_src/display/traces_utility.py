@@ -7,8 +7,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation as RotScipy
 
 from magpylib._src.defaults.defaults_classes import default_settings as Config
+from magpylib._src.defaults.defaults_classes import MarkersStyle
 from magpylib._src.defaults.defaults_utility import linearize_dict
-from magpylib._src.style import Markers
 
 
 class MagpyMarkers:
@@ -17,7 +17,7 @@ class MagpyMarkers:
     _object_type = "Marker"
 
     def __init__(self, *markers):
-        self.style = Markers()
+        self.style = MarkersStyle()
         self.markers = np.array(markers)
 
 
@@ -178,7 +178,7 @@ def draw_arrowed_circle(current, diameter, arrow_size, vert):
     return vertices
 
 
-def get_rot_pos_from_path(obj, show_path=None):
+def get_rot_pos_from_path(obj, frames=None):
     """
     subsets orientations and positions depending on `show_path` value.
     examples:
@@ -187,8 +187,8 @@ def get_rot_pos_from_path(obj, show_path=None):
     """
     # pylint: disable=protected-access
     # pylint: disable=invalid-unary-operand-type
-    if show_path is None:
-        show_path = True
+    if frames is None:
+        frames = True
     pos = getattr(obj, "_position", None)
     if pos is None:
         pos = obj.position
@@ -200,12 +200,12 @@ def get_rot_pos_from_path(obj, show_path=None):
         orient = RotScipy.from_rotvec([[0, 0, 1]])
     pos = np.array([pos]) if pos.ndim == 1 else pos
     path_len = pos.shape[0]
-    if show_path is True or show_path is False or show_path == 0:
+    if frames is True or frames is False or frames == 0:
         inds = np.array([-1])
-    elif isinstance(show_path, int):
-        inds = np.arange(path_len, dtype=int)[::-show_path]
-    elif hasattr(show_path, "__iter__") and not isinstance(show_path, str):
-        inds = np.array(show_path)
+    elif isinstance(frames, int):
+        inds = np.arange(path_len, dtype=int)[::-frames]
+    elif hasattr(frames, "__iter__") and not isinstance(frames, str):
+        inds = np.array(frames)
     inds[inds >= path_len] = path_len - 1
     inds = np.unique(inds)
     if inds.size == 0:

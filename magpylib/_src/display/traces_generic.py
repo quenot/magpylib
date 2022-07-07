@@ -11,6 +11,7 @@ from scipy.spatial.transform import Rotation as RotScipy
 
 from magpylib import _src
 from magpylib._src.defaults.defaults_classes import default_settings as Config
+from magpylib._src.defaults.defaults_utility import get_style
 from magpylib._src.defaults.defaults_utility import linearize_dict
 from magpylib._src.display.sensor_mesh import get_sensor_mesh
 from magpylib._src.display.traces_base import make_Arrow as make_BaseArrow
@@ -34,7 +35,6 @@ from magpylib._src.display.traces_utility import merge_mesh3d
 from magpylib._src.display.traces_utility import merge_traces
 from magpylib._src.display.traces_utility import place_and_orient_model3d
 from magpylib._src.input_checks import check_excitations
-from magpylib._src.style import get_style
 from magpylib._src.utility import format_obj_input
 from magpylib._src.utility import unit_prefix
 
@@ -457,8 +457,8 @@ def update_magnet_mesh(mesh_dict, mag_style=None, magnetization=None):
 
 def update_trace_name(trace, default_name, default_suffix, style):
     """provides legend entry based on name and suffix"""
-    name = default_name if style.label is None else style.label
-    if style.description.show and style.description.text is None:
+    name = default_name if style.label.strip() == "" else style.label
+    if style.description.show and style.description.text.strip() == "":
         name_suffix = default_suffix
     elif not style.description.show:
         name_suffix = ""
@@ -468,7 +468,7 @@ def update_trace_name(trace, default_name, default_suffix, style):
     return trace
 
 
-def make_mag_arrows(obj, style, legendgroup, kwargs):
+def make_mag_arrows(obj, style, legendgroup, path_indices, orientations, kwargs):
     """draw direction of magnetization of faced magnets
 
     Parameters
@@ -478,9 +478,6 @@ def make_mag_arrows(obj, style, legendgroup, kwargs):
     - show_path(bool or int): draw on every position where object is displayed
     """
     # pylint: disable=protected-access
-
-    # add src attributes position and orientation depending on show_path
-    rots, _, inds = get_rot_pos_from_path(obj, style.path.frames)
 
     # vector length, color and magnetization
     if obj._object_type in ("Cuboid", "Cylinder"):
@@ -493,7 +490,7 @@ def make_mag_arrows(obj, style, legendgroup, kwargs):
     mag = obj.magnetization
     # collect all draw positions and directions
     points = []
-    for rot, ind in zip(rots, inds):
+    for ind, rot in zip(path_indices, orientations):
         pos = getattr(obj, "_barycenter", obj._position)[ind]
         direc = mag / (np.linalg.norm(mag) + 1e-6) * length
         vec = rot.apply(direc)
@@ -580,7 +577,7 @@ def get_generic_traces(
     # pylint: disable=too-many-nested-blocks
 
     # parse kwargs into style and non style args
-    style = get_style(input_obj, Config, **kwargs)
+    style = get_style(input_obj, **kwargs)
     kwargs = {k: v for k, v in kwargs.items() if not k.startswith("style")}
     kwargs["style"] = style
     style_color = getattr(style, "color", None)
@@ -594,8 +591,8 @@ def get_generic_traces(
             check_excitations([input_obj])
 
     label = getattr(getattr(input_obj, "style", None), "label", None)
+    label = None if label == "" else label
     label = label if label is not None else str(type(input_obj).__name__)
-
     object_type = getattr(input_obj, "_object_type", None)
     if object_type != "Collection":
         make_func = globals().get(f"make_{object_type}", make_DefaultTrace)
@@ -616,7 +613,10 @@ def get_generic_traces(
         return out[0] if len(out) == 1 else out
 
     extra_model3d_traces = style.model3d.data if style.model3d.data is not None else []
-    orientations, positions, _ = get_rot_pos_from_path(input_obj, style.path.frames)
+    path_frames = getattr(style.path.frames, style.path.frames.mode)
+    orientations, positions, path_indices = get_rot_pos_from_path(
+        input_obj, path_frames
+    )
     for pos_orient_ind, (orient, pos) in enumerate(zip(orientations, positions)):
         if style.model3d.showdefault and make_func is not None:
             path_traces.append(
@@ -710,7 +710,11 @@ def get_generic_traces(
         traces.append(scatter_path)
 
     if mag_arrows and getattr(input_obj, "magnetization", None) is not None:
-        traces.append(make_mag_arrows(input_obj, style, legendgroup, kwargs))
+        traces.append(
+            make_mag_arrows(
+                input_obj, style, legendgroup, path_indices, orientations, kwargs
+            )
+        )
     out = (traces,)
     if extra_backend is not False:
         out += (path_traces_extra_specific_backend,)

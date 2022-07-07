@@ -6,6 +6,7 @@ import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from magpylib._src.defaults.defaults_classes import default_settings as Config
+from magpylib._src.defaults.defaults_utility import get_style
 from magpylib._src.display.traces_utility import draw_arrow_from_vertices
 from magpylib._src.display.traces_utility import draw_arrowed_circle
 from magpylib._src.display.traces_utility import get_flatten_objects_properties
@@ -13,7 +14,6 @@ from magpylib._src.display.traces_utility import get_rot_pos_from_path
 from magpylib._src.display.traces_utility import MagpyMarkers
 from magpylib._src.display.traces_utility import place_and_orient_model3d
 from magpylib._src.input_checks import check_excitations
-from magpylib._src.style import get_style
 
 
 def faces_cuboid(src, show_path):
@@ -620,10 +620,8 @@ def display_matplotlib_old(
     )
     for obj, props in flat_objs_props.items():
         color = props["color"]
-        style = get_style(obj, Config, **kwargs)
-        path_frames = style.path.frames
-        if path_frames is None:
-            path_frames = True
+        style = get_style(obj, **kwargs)
+        path_frames = getattr(style.path.frames, style.path.frames.mode)
         obj_color = style.color if style.color is not None else color
         lw = 0.25
         faces = None

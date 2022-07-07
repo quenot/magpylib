@@ -882,7 +882,7 @@ class DefaultConfig(MagicParameterized):
 
 default_settings = DefaultConfig()
 
-STYLE_CLASSES = defaultdict(BaseStyle)
+STYLE_CLASSES = defaultdict(lambda: BaseStyle)
 STYLE_CLASSES.update(
     {
         "magnet": MagnetStyle,
