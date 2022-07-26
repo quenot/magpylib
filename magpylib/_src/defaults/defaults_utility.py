@@ -5,7 +5,6 @@ from copy import deepcopy
 import param
 
 from magpylib._src.defaults.defaults_values import DEFAULTS
-from magpylib._src.utility import Registered
 
 
 SUPPORTED_PLOTTING_BACKENDS = ("matplotlib", "plotly")
@@ -51,18 +50,6 @@ SIZE_FACTORS_MATPLOTLIB_TO_PLOTLY = {
     "line_width": 2.2,
     "marker_size": 0.7,
 }
-
-
-def get_style_class(obj):
-    """Return style instance based on object type. If object has no attribute `_object_type` or is
-    not found in `Registered.famillies` returns `BaseStyle` instance."""
-    # pylint: disable=import-outside-toplevel
-    # pylint: disable=cyclic-import
-    from magpylib._src.defaults.defaults_classes import STYLE_CLASSES
-
-    obj_type = getattr(obj, "_object_type", None)
-    style_fam = Registered.families.get(obj_type, None)
-    return STYLE_CLASSES[style_fam]  # defaultdict with Basestyle
 
 
 def get_style(obj, **kwargs):

@@ -2,14 +2,14 @@
 DOCSTRINGS V4 READY
 """
 # pylint: disable=cyclic-import
+from magpylib._src.defaults.defaults_classes import CurrentStyle
+from magpylib._src.defaults.defaults_classes import MagnetStyle
 from magpylib._src.fields.field_wrap_BH import getBH_level2
 from magpylib._src.input_checks import check_format_input_scalar
 from magpylib._src.input_checks import check_format_input_vector
 from magpylib._src.input_checks import validate_field_func
 from magpylib._src.obj_classes.class_BaseDisplayRepr import BaseDisplayRepr
 from magpylib._src.obj_classes.class_BaseGeo import BaseGeo
-from magpylib._src.style import CurrentStyle
-from magpylib._src.style import MagnetStyle
 from magpylib._src.utility import format_star_input
 
 

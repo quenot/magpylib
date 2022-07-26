@@ -1,11 +1,11 @@
 """Dipole class code
 DOCSTRINGS V4 READY
 """
+from magpylib._src.defaults.defaults_classes import DipoleStyle
 from magpylib._src.display.traces_generic import make_Dipole
 from magpylib._src.fields.field_BH_dipole import dipole_field
 from magpylib._src.input_checks import check_format_input_vector
 from magpylib._src.obj_classes.class_BaseExcitations import BaseSource
-from magpylib._src.style import DipoleStyle
 
 
 class Dipole(BaseSource):
