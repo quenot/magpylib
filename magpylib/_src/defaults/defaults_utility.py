@@ -1,4 +1,5 @@
 """utilities for creating property classes"""
+# pylint: disable=cyclic-import
 import collections.abc
 from copy import deepcopy
 

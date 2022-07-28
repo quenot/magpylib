@@ -11,6 +11,7 @@ from scipy.spatial.transform import Rotation as RotScipy
 
 from magpylib import _src
 from magpylib._src.defaults.defaults_classes import default_settings as Config
+from magpylib._src.defaults.defaults_classes import MarkersStyle
 from magpylib._src.defaults.defaults_utility import get_style
 from magpylib._src.defaults.defaults_utility import linearize_dict
 from magpylib._src.display.sensor_mesh import get_sensor_mesh
@@ -46,7 +47,7 @@ class MagpyMarkers:
     """A class that stores markers 3D-coordinates."""
 
     def __init__(self, *markers):
-        self.style = Markers()
+        self.style = MarkersStyle()
         self.markers = np.array(markers)
 
     def _draw_func(self, color=None, style=None, **kwargs):
