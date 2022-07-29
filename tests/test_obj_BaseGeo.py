@@ -467,7 +467,6 @@ def test_describe():
         "  • parent: None ",
         "  • position: [0. 0. 0.] mm",
         "  • orientation: [0. 0. 0.] degrees",
-        "  • family: sensor ",
         "  • pixel: 1 ",
         "  • style: <SensorStyle SensorStyleREGEX> ",
     ]
@@ -484,7 +483,6 @@ def test_describe():
         "  • parent: None ",
         "  • position: [0. 0. 0.] mm",
         "  • orientation: [0. 0. 0.] degrees",
-        "  • family: sensor ",
         "  • pixel: 75 (3x5x5) ",
     ]
     desc = re.sub("id=*[0-9]*[0-9]", "id=REGEX", desc)

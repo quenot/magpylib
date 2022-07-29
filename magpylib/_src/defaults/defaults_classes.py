@@ -173,11 +173,11 @@ class Trace3d(MagicParameterized):
         return super().__setattr__(name, value)
 
     backend = param.Selector(
-        default="matplotlib",
-        objects=list(SUPPORTED_PLOTTING_BACKENDS),
+        default="generic",
+        objects=list(SUPPORTED_PLOTTING_BACKENDS) + ["generic"],
         doc=f"""
         Plotting backend corresponding to the trace. Can be one of
-        {SUPPORTED_PLOTTING_BACKENDS}""",
+        {list(SUPPORTED_PLOTTING_BACKENDS) + ['generic']}""",
     )
 
     constructor = param.String(

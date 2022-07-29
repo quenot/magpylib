@@ -30,7 +30,7 @@ def repr_obj(obj, format="type+id+label"):
         if show_type:
             tag += " "
         label = getattr(getattr(obj, "style", None), "label", None)
-        if label is None:
+        if not label:
             label = "nolabel" if show_type else f"{type(obj).__name__}"
         tag += label
 
