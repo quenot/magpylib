@@ -24,7 +24,7 @@ $$
 \psi(x,y) = \int_C \mathbf{B}.\mathbf{n} dl  = \int_C B_x \ dy - B_y \ dx
 $$
 
-```{caution}
+```{note}
 This method is restricted to 2D (planar) fields with $B_z = 0$ and $\partial B_z / \partial z = 0$.
 ```
 
