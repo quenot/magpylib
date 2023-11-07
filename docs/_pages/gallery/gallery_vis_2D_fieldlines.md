@@ -30,7 +30,7 @@ $$
 
 ## Cuboid magnet example
 
-Code to be improved, including specifying starting points as sets of (x,y) coordinates.
+Code to be improved, including specifying starting points as sets of (x,y) coordinates. It will also be clearer to choose the same x and y axes for the figure and for the "real world" x and y axes.
 
 ```{code-cell} ipython3
 import matplotlib.pyplot as plt
