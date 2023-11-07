@@ -78,7 +78,7 @@ levels = levelsFromXY(psi, xp, yp)
 plt.contour(x, y, psi, levels=levels, colors='blue', linewidths=1.0, negative_linestyles='solid')
 
 # Outline magnet boundary
-ax.plot([mx/2, mx/2, -mx/2, -mx/2, mx/2], [my/2, -my/2, -my/2, my/2, my/2], "k-", lw=2)
+ax.plot([mx/2, mx/2, -mx/2, -mx/2, mx/2], [my/2, -my/2, -my/2, my/2, my/2], "k-", lw=1.2)
 
 # Figure styling
 ax.set(xlabel="x-position (mm)", ylabel="y-position (mm)",)
