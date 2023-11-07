@@ -41,6 +41,7 @@ from scipy.interpolate import RegularGridInterpolator
 nx, ny = 500, 400    # grid size
 wx, wy = 10, 8       # window size (scale 1 mm ~ 1 inch)
 mx, my, mz = 2.4, 1.8, 10 # magnet size
+nisos = 31
 
 # Create a Matplotlib figure
 fig, ax = plt.subplots(figsize=(wx, wy))
@@ -53,7 +54,7 @@ tsy = -wy/2+wy*(np.arange(ny)+0.5)/ny
 # grid = np.array([[(x,y,0) for x in tsx] for y in tsy]) # slow Python loop
 grid = np.moveaxis(np.array(np.meshgrid(tsx, tsy, [0]))[:,:,:,0], 0, -1)
 
-# Compute the B-field of a cube magnet on the grid
+# Compute the B-field of a cuboid magnet on the grid
 cube = magpy.magnet.Cuboid(magnetization=(0, -1000, 0), dimension=(mx, my, mz))
 B = cube.getB(grid)
 x, y, u, v = grid[:,:,0], grid[:,:,1], B[:, :, 0], B[:, :, 1]
@@ -63,7 +64,7 @@ dx, dy = x[0,1]-x[0,0], y[1,0]-y[0,0]
 psi = np.cumsum(u,axis=0)*dy-np.cumsum(v[0:1,:],axis=1)*dx
 
 # Define starting points
-xp, yp = np.linspace(-mx/2, mx/2, 31), np.zeros(31)
+xp, yp = np.linspace(-mx/2, mx/2, nisos), np.zeros(nisos)
 plt.plot(xp, yp, 'bo', markersize=2.5)
 
 # Turn starting points into levels
