@@ -16,17 +16,17 @@ kernelspec:
 
 # Visualizing 2D streamlines using contours on a stream function
 
-In this example, we show the B-field streamlines, complete and unbroken, with given starting points, and without using matplotlib streamplot as in {ref}`gallery_vis_mpl_streamplot`. This method is restricted to 2D (planar) fields with $B_z = 0$ and $\partial B_z / \partial z = 0$.
+```{note}
+This method is restricted to 2D (planar) fields with $B_z = 0$ and $\partial B_z / \partial z = 0$.
+```
+
+In this example, we show the B-field streamlines, complete and unbroken, with given starting points, and without using matplotlib streamplot as in {ref}`gallery_vis_mpl_streamplot`.
 
 Work in progress.
 
 $$
 \psi(x,y) = \int_C \mathbf{B}.\mathbf{n} dl  = \int_C B_x \ dy - B_y \ dx
 $$
-
-```{note}
-This method is restricted to 2D (planar) fields with $B_z = 0$ and $\partial B_z / \partial z = 0$.
-```
 
 ## Cuboid magnet example
 
